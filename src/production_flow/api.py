@@ -83,6 +83,43 @@ class JsonApplication:
                 return Response(200, self.service.approve_scenario(actor, parts[1], int(payload["expected_revision"])))
             if method == "POST" and len(parts) == 3 and parts[0] == "scenarios" and parts[2] == "run":
                 return Response(200, self.service.run_scenario(actor, parts[1], payload["as_of_date"]))
+            # -- 端到端计量监管链 --
+            custody = self.service.custody
+            if method == "POST" and path == "/calibrations":
+                return Response(201, custody.register_calibration(actor, payload))
+            if method == "POST" and path == "/custody/batches":
+                return Response(201, custody.record_batch(actor, payload))
+            if method == "POST" and path == "/custody/links":
+                return Response(201, custody.link_batches(actor, payload))
+            if method == "POST" and path == "/custody/late-readings":
+                return Response(201, custody.record_late_reading(actor, payload))
+            if method == "POST" and path == "/custody/handovers":
+                return Response(201, custody.sign_handover(actor, payload))
+            if method == "POST" and path == "/custody/disputes":
+                return Response(201, custody.open_dispute(actor, payload))
+            if (
+                method == "POST"
+                and len(parts) == 4
+                and parts[0] == "custody"
+                and parts[1] == "disputes"
+                and parts[3] == "resolve"
+            ):
+                return Response(200, custody.resolve_dispute(actor, int(parts[2]), payload["resolution_note"]))
+            if method == "GET" and path == "/custody/trace":
+                voyage = query.get("vessel_voyage", [""])[0]
+                if voyage:
+                    return Response(200, custody.trace_voyage(actor, voyage))
+                return Response(422, {"error": {"code": "invalid_request", "message": "必须提供 vessel_voyage"}})
+            if (
+                method == "GET"
+                and len(parts) == 4
+                and parts[0] == "custody"
+                and parts[1] == "lifting"
+                and parts[3] == "trace"
+            ):
+                return Response(200, custody.trace_lifting(actor, parts[2]))
+            if method == "GET" and path == "/custody/balance":
+                return Response(200, custody.material_balance(actor))
             if method == "GET" and path == "/audit/chain":
                 return Response(200, self.service.audit_chain(actor))
             return Response(404, {"error": {"code": "route_not_found", "message": "接口不存在"}})

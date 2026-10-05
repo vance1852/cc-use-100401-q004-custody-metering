@@ -31,10 +31,16 @@ from .storage import initialize, transaction
 
 
 ROLE_PERMISSIONS = {
-    "planner": {"quote.write", "catalog.write", "scenario.write", "scenario.run"},
-    "dispatcher": {"nomination.write", "allocation.run", "transfer.write", "inventory.write"},
-    "risk": {"outage.write", "scenario.approve", "report.read"},
+    "planner": {"quote.write", "catalog.write", "scenario.write", "scenario.run", "report.read"},
+    "dispatcher": {"nomination.write", "allocation.run", "transfer.write", "inventory.write", "handover.write"},
+    "risk": {"outage.write", "scenario.approve", "report.read", "dispute.write", "dispute.resolve"},
     "auditor": {"report.read", "audit.read"},
+    "metering": {
+        "calibration.write",
+        "measurement.write",
+        "settlement.write",
+        "report.read",
+    },
 }
 
 
@@ -43,6 +49,16 @@ class SupplyService:
         self.connection = connection
         self.clock = clock or SystemClock()
         initialize(connection)
+        self._custody = None
+
+    @property
+    def custody(self):
+        """端到端计量监管链用例，复用同一连接、时钟与审计链。"""
+        if self._custody is None:
+            from .custody_service import CustodyService
+
+            self._custody = CustodyService(self)
+        return self._custody
 
     def _now(self) -> str:
         return utc_text(self.clock.now())
